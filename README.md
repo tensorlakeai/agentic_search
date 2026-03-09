@@ -32,6 +32,7 @@ You can deploy the agent to your account on Tensoralke, and integreate deep rese
 ```
 pip install tensorlake
 ```
+This installs the Tensorlake Python SDK that allows integrating any Python application with the Tensorlake serverless runtime. It installs a cli called `tl` for deploying applications, secrets and sandboxes.
 
 ### Get an API Key 
 
@@ -58,6 +59,8 @@ export BROWSERBASE_PROJECT_ID="proj_..."
 
 ## Test the agent locally
 
+You can run applications that runs on Tensorlake locally. 
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
@@ -68,6 +71,8 @@ python app.py
 ## Deploy to Tensorlake
 
 #### Set Secrets
+API Keys can be deployed as secrets and are available as environment variable.
+
 ```bash
 tl secrets set TENSORLAKE_API_KEY="tl_..."
 tl secrets set OPENAI_API_KEY="sk-..."
@@ -79,8 +84,10 @@ tl secrets set BROWSERBASE_PROJECT_ID="proj_..."
 #### Deploy Application
 
 ```bash
-tensorlake deploy app.py
+tl deploy app.py
 ```
+
+The `deploy` command builds the container images that your agent runs on, and then deploys the application to Tensorlake and creates an HTTP API.
 
 #### Invoke with curl
 
