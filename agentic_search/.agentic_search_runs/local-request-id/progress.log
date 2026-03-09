@@ -1,0 +1,173 @@
+[2026-03-08T22:46:37.261533+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-08T22:46:38.148157+00:00] Built 2 query variations
+[2026-03-08T22:46:52.631952+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-08T22:46:53.568209+00:00] Built 2 query variations
+[2026-03-08T22:46:53.569376+00:00] Launching 2 auto-search variations in parallel
+[2026-03-08T22:46:53.571366+00:00] Auto-search variation 1/2
+[2026-03-08T22:47:02.354766+00:00] search_site succeeded
+[2026-03-08T22:47:02.356634+00:00] Finished search variation 1/2
+[2026-03-08T22:47:02.357909+00:00] Auto-search variation 2/2
+[2026-03-08T22:47:02.359281+00:00] search_site succeeded
+[2026-03-08T22:47:02.360667+00:00] Finished search variation 2/2
+[2026-03-08T22:47:02.361653+00:00] Search discovery phase complete
+[2026-03-08T22:47:02.367533+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-08T22:47:02.368695+00:00] Agent is running research steps
+[2026-03-08T22:47:02.553447+00:00] Agent failed: Error code: 400 - {'error': {'message': "Tool 'shell' is not supported with gpt-4.1-mini.", 'type': 'invalid_request_error', 'param': 'tools', 'code': None}}
+[2026-03-08T22:47:06.633720+00:00] fetch_page succeeded
+[2026-03-08T22:47:06.636496+00:00] Skipped Elasticsearch ingestion
+[2026-03-08T22:47:06.638130+00:00] Run complete: visited 1 pages and made 3 tool calls
+[2026-03-08T22:48:29.425100+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-08T22:48:30.377586+00:00] Built 2 query variations
+[2026-03-08T22:48:30.378903+00:00] Launching 2 auto-search variations in parallel
+[2026-03-08T22:48:30.381002+00:00] Auto-search variation 1/2
+[2026-03-08T22:48:38.469806+00:00] search_site succeeded
+[2026-03-08T22:48:38.471933+00:00] Finished search variation 1/2
+[2026-03-08T22:48:38.473221+00:00] Auto-search variation 2/2
+[2026-03-08T22:48:38.474512+00:00] search_site succeeded
+[2026-03-08T22:48:38.475858+00:00] Finished search variation 2/2
+[2026-03-08T22:48:38.476971+00:00] Search discovery phase complete
+[2026-03-08T22:48:38.483281+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-08T22:48:38.484389+00:00] Agent is running research steps
+[2026-03-08T22:48:43.715733+00:00] fetch_relevant_snippets succeeded
+[2026-03-08T22:48:44.590348+00:00] fetch_page succeeded
+[2026-03-08T22:48:46.547077+00:00] fetch_relevant_snippets succeeded
+[2026-03-08T22:48:47.951918+00:00] fetch_page failed (Max page budget reached (3).)
+[2026-03-08T22:48:50.699958+00:00] Agent completed research and drafted an answer
+[2026-03-08T22:48:50.702093+00:00] Skipped Elasticsearch ingestion
+[2026-03-08T22:48:50.703807+00:00] Run complete: visited 3 pages and made 6 tool calls
+[2026-03-08T22:50:53.041416+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-08T22:50:54.657834+00:00] Built 2 query variations
+[2026-03-08T22:50:54.659328+00:00] Launching 2 auto-search variations in parallel
+[2026-03-08T22:50:54.661444+00:00] Auto-search variation 1/2
+[2026-03-08T22:51:02.674321+00:00] search_site succeeded
+[2026-03-08T22:51:02.676771+00:00] Finished search variation 1/2
+[2026-03-08T22:51:02.678111+00:00] Auto-search variation 2/2
+[2026-03-08T22:51:03.603354+00:00] search_site succeeded
+[2026-03-08T22:51:03.605580+00:00] Finished search variation 2/2
+[2026-03-08T22:51:03.606935+00:00] Search discovery phase complete
+[2026-03-08T22:51:03.613121+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-08T22:51:03.614232+00:00] Agent is running research steps
+[2026-03-08T22:51:14.546283+00:00] search_site succeeded
+[2026-03-08T22:51:43.874627+00:00] search_site succeeded
+[2026-03-08T22:51:50.968604+00:00] fetch_page succeeded
+[2026-03-08T22:51:57.875031+00:00] fetch_page succeeded
+[2026-03-08T22:51:58.290582+00:00] fetch_page succeeded
+[2026-03-08T22:52:05.339647+00:00] Agent completed research and drafted an answer
+[2026-03-08T22:52:05.342420+00:00] Skipped Elasticsearch ingestion
+[2026-03-08T22:52:05.344233+00:00] Run complete: visited 3 pages and made 7 tool calls
+[2026-03-08T23:39:38.046381+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-08T23:39:39.297381+00:00] Built 2 query variations
+[2026-03-08T23:39:39.298579+00:00] Launching 2 auto-search variations in parallel
+[2026-03-08T23:39:39.300507+00:00] Auto-search variation 1/2
+[2026-03-08T23:39:48.026628+00:00] search_site succeeded
+[2026-03-08T23:39:48.028532+00:00] Finished search variation 1/2
+[2026-03-08T23:39:48.030349+00:00] Auto-search variation 2/2
+[2026-03-08T23:39:49.113498+00:00] search_site succeeded
+[2026-03-08T23:39:49.115343+00:00] Finished search variation 2/2
+[2026-03-08T23:39:49.116835+00:00] Search discovery phase complete
+[2026-03-08T23:39:49.124170+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-08T23:39:49.125464+00:00] Agent is running research steps
+[2026-03-08T23:39:59.232237+00:00] search_site succeeded
+[2026-03-08T23:39:59.411863+00:00] search_site succeeded
+[2026-03-08T23:40:06.437279+00:00] fetch_page succeeded
+[2026-03-08T23:40:08.253730+00:00] fetch_relevant_snippets succeeded
+[2026-03-08T23:40:10.606646+00:00] read_local_file succeeded
+[2026-03-08T23:40:15.805225+00:00] Agent completed research and drafted an answer
+[2026-03-08T23:40:15.807815+00:00] Skipped Elasticsearch ingestion
+[2026-03-08T23:40:15.809485+00:00] Run complete: visited 1 pages and made 7 tool calls
+[2026-03-09T02:28:06.638356+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-09T02:28:08.103019+00:00] Built 2 query variations
+[2026-03-09T02:28:08.104085+00:00] Launching 2 auto-search variations in parallel
+[2026-03-09T02:28:08.105980+00:00] Auto-search variation 1/2
+[2026-03-09T02:28:16.044295+00:00] search_site succeeded
+[2026-03-09T02:28:16.046274+00:00] Finished search variation 1/2
+[2026-03-09T02:28:16.047519+00:00] Auto-search variation 2/2
+[2026-03-09T02:28:16.048945+00:00] search_site succeeded
+[2026-03-09T02:28:16.050325+00:00] Finished search variation 2/2
+[2026-03-09T02:28:16.051594+00:00] Search discovery phase complete
+[2026-03-09T02:28:16.058024+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-09T02:28:16.059215+00:00] Agent is running research steps
+[2026-03-09T02:28:23.539238+00:00] fetch_page succeeded
+[2026-03-09T02:28:26.982263+00:00] search_site succeeded
+[2026-03-09T02:28:27.457948+00:00] search_site succeeded
+[2026-03-09T02:28:29.162446+00:00] read_local_file succeeded
+[2026-03-09T02:28:35.892823+00:00] fetch_page succeeded
+[2026-03-09T02:28:36.102555+00:00] fetch_page succeeded
+[2026-03-09T02:28:37.720645+00:00] read_local_file succeeded
+[2026-03-09T02:28:37.720790+00:00] read_local_file succeeded
+[2026-03-09T02:28:46.735560+00:00] Agent completed research and drafted an answer
+[2026-03-09T02:28:46.738066+00:00] Agent skipped local grep/rg search; answer marked degraded
+[2026-03-09T02:28:46.740482+00:00] Skipped Elasticsearch ingestion
+[2026-03-09T02:28:46.742121+00:00] Run complete: visited 3 pages and made 10 tool calls
+[2026-03-09T02:34:03.429061+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-09T02:34:04.489908+00:00] Built 3 query variations
+[2026-03-09T02:34:04.491324+00:00] Launching 3 auto-search variations in parallel
+[2026-03-09T02:34:04.493338+00:00] Auto-search variation 1/3
+[2026-03-09T02:34:12.731203+00:00] search_site succeeded
+[2026-03-09T02:34:12.733354+00:00] Finished search variation 1/3
+[2026-03-09T02:34:12.734880+00:00] Auto-search variation 2/3
+[2026-03-09T02:34:12.736391+00:00] search_site succeeded
+[2026-03-09T02:34:12.737809+00:00] Finished search variation 2/3
+[2026-03-09T02:34:12.739396+00:00] Auto-search variation 3/3
+[2026-03-09T02:34:12.740566+00:00] search_site succeeded
+[2026-03-09T02:34:12.742307+00:00] Finished search variation 3/3
+[2026-03-09T02:34:12.743709+00:00] Search discovery phase complete
+[2026-03-09T02:34:12.751043+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-09T02:34:12.752597+00:00] Agent is running research steps
+[2026-03-09T02:34:21.882232+00:00] search_site succeeded
+[2026-03-09T02:34:21.927292+00:00] search_site succeeded
+[2026-03-09T02:34:22.138515+00:00] search_site succeeded
+[2026-03-09T02:34:29.306619+00:00] fetch_page succeeded
+[2026-03-09T02:34:30.467739+00:00] rg succeeded
+[2026-03-09T02:34:33.928627+00:00] read_local_file succeeded
+[2026-03-09T02:34:33.930041+00:00] read_local_file succeeded
+[2026-03-09T02:34:33.930312+00:00] read_local_file succeeded
+[2026-03-09T02:34:33.933559+00:00] Agent failed: Max turns (4) exceeded
+[2026-03-09T02:34:33.935138+00:00] Skipped Elasticsearch ingestion
+[2026-03-09T02:34:33.936551+00:00] Run complete: visited 1 pages and made 11 tool calls
+[2026-03-09T02:34:44.396999+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-09T02:34:45.769314+00:00] Built 3 query variations
+[2026-03-09T02:34:45.770671+00:00] Launching 3 auto-search variations in parallel
+[2026-03-09T02:34:45.773763+00:00] Auto-search variation 1/3
+[2026-03-09T02:34:53.449927+00:00] search_site succeeded
+[2026-03-09T02:34:53.451984+00:00] Finished search variation 1/3
+[2026-03-09T02:34:53.453587+00:00] Auto-search variation 2/3
+[2026-03-09T02:34:53.984908+00:00] search_site succeeded
+[2026-03-09T02:34:53.987170+00:00] Finished search variation 2/3
+[2026-03-09T02:34:53.988407+00:00] Auto-search variation 3/3
+[2026-03-09T02:34:53.989785+00:00] search_site succeeded
+[2026-03-09T02:34:53.991300+00:00] Finished search variation 3/3
+[2026-03-09T02:34:53.992943+00:00] Search discovery phase complete
+[2026-03-09T02:34:53.998535+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-09T02:34:53.999735+00:00] Agent is running research steps
+[2026-03-09T02:35:03.062067+00:00] search_site succeeded
+[2026-03-09T02:35:03.104302+00:00] search_site succeeded
+[2026-03-09T02:35:03.377138+00:00] search_site succeeded
+[2026-03-09T02:35:04.705459+00:00] list_local_files succeeded
+[2026-03-09T02:35:09.109753+00:00] fetch_page succeeded
+[2026-03-09T02:35:10.472819+00:00] read_local_file succeeded
+[2026-03-09T02:35:10.472783+00:00] read_local_file succeeded
+[2026-03-09T02:35:18.285659+00:00] Agent completed research and drafted an answer
+[2026-03-09T02:35:18.288430+00:00] Skipped Elasticsearch ingestion
+[2026-03-09T02:35:18.290495+00:00] Run complete: visited 1 pages and made 10 tool calls
+[2026-03-09T02:50:56.856329+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-09T02:50:56.857385+00:00] Agent-driven workflow enabled: the agent will choose search and fetch steps.
+[2026-03-09T02:50:56.860865+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-09T02:50:56.861845+00:00] Agent is running research steps
+[2026-03-09T02:51:06.494813+00:00] search_site succeeded
+[2026-03-09T02:51:15.748128+00:00] search_site succeeded
+[2026-03-09T02:51:22.054921+00:00] fetch_page succeeded
+[2026-03-09T02:51:23.459779+00:00] read_local_file succeeded
+[2026-03-09T02:51:28.839861+00:00] Agent completed research and drafted an answer
+[2026-03-09T02:51:28.845688+00:00] Skipped Elasticsearch indexing
+[2026-03-09T02:51:28.847791+00:00] Run complete: made 4 tool calls
+[2026-03-09T02:52:37.313855+00:00] Started run for 'What is Browserbase?' on https://docs.browserbase.com/introduction
+[2026-03-09T02:52:37.314997+00:00] Agent-driven workflow enabled: the agent will choose search and fetch steps.
+[2026-03-09T02:52:37.318346+00:00] Running OpenAI Agents SDK orchestration
+[2026-03-09T02:52:37.319253+00:00] Agent is running research steps
+[2026-03-09T02:52:46.359378+00:00] search_site succeeded
+[2026-03-09T02:52:52.872110+00:00] fetch_page succeeded
+[2026-03-09T02:52:53.897822+00:00] read_local_file succeeded
+[2026-03-09T02:52:59.295042+00:00] Agent completed research and drafted an answer
+[2026-03-09T02:52:59.298944+00:00] Skipped Elasticsearch indexing
+[2026-03-09T02:52:59.301985+00:00] Run complete: made 3 tool calls
