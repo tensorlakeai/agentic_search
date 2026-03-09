@@ -6,9 +6,8 @@ choose and run tools (search/fetch/read/grep/shell) to research and answer.
 
 import json
 import os
-import re
 from base64 import b64decode
-from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -33,9 +32,10 @@ from models import (
 from prompts import SYSTEM_INSTRUCTIONS, build_agent_prompt
 from utils import (
     _extract_domain,
+    _emit_progress,
     _resolve_required,
+    _track_tool,
     _tool_result_to_text,
-    _trim_text,
 )
 from tensorlake.applications import (
     RequestContext,
@@ -67,7 +67,7 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
     )
 
     ctx = RequestContext.get()
-    run_id = str(getattr(ctx, "request_id", "")) or f"run-{int(datetime.now(timezone.utc).timestamp())}"
+    run_id = ctx.request_id
     allowed_domain = _extract_domain(input.website)
     workspace = LocalWorkspace.create(
         run_id=run_id,
@@ -84,6 +84,7 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
     tool_calls_executed = 0
     final_answer = ""
     progress_current = 0.0
+    progress = ctx.progress
 
     def _workspace_relative(path: str) -> str:
         if not path:
@@ -93,81 +94,25 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
         except Exception:
             return path
 
-    def _emit_progress(current: float, message: str, attributes: dict[str, Any] | None = None) -> None:
-        nonlocal progress_current
-        progress_current = max(progress_current, min(float(current), 100.0))
-        safe_attributes = {str(key): str(value) for key, value in (attributes or {}).items()}
-        ctx.progress.update(progress_current, 100, message, safe_attributes)
-        try:
-            workspace.append_progress(message)
-        except Exception:
-            pass
+    emit_progress = partial(_emit_progress, progress=progress, workspace=workspace)
+    track_tool = partial(
+        _track_tool,
+        progress=progress,
+        workspace=workspace,
+        search_observations=search_observations,
+        local_file_search_observations=local_file_search_observations,
+    )
 
-    def _track_tool(tool_name: str, args: dict[str, Any], result: dict[str, Any]) -> None:
-        nonlocal tool_calls_executed
-        tool_calls_executed += 1
-        success = bool(result.get("success", False))
-
-
-        status_text = "succeeded" if success else f"failed ({result.get('error', 'unknown error')})"
-        _emit_progress(min(progress_current + 1.5, 90.0), f"{tool_name} {status_text}")
-
-        try:
-            workspace.record_tool_call(
-                sequence=tool_calls_executed,
-                tool_name=tool_name,
-                args=args,
-                result=result,
-                summary_text=_trim_text(_tool_result_to_text(tool_name, result), 9000),
-            )
-        except Exception:
-            pass
-
-        if tool_name == "search_site":
-            compact_results = []
-            for item in result.get("results", []):
-                if not item.get("url"):
-                    continue
-                compact_results.append(
-                    {
-                        "url": item.get("url", ""),
-                        "title": _trim_text(str(item.get("title", "")), 180),
-                        "snippet": _trim_text(str(item.get("snippet", "")), 320),
-                    }
-                )
-            search_observations.append(
-                {
-                    "query": str(args.get("search_query") or ""),
-                    "success": success,
-                    "search_url": str(result.get("search_url", "")),
-                    "error": str(result.get("error", "")),
-                    "results": compact_results[:20],
-                }
-            )
-        elif tool_name == "rg":
-            query = str(args.get("query", "")).strip()
-            local_file_search_observations.append(
-                {
-                    "tool": "rg",
-                    "query": query,
-                    "matches": int(result.get("matches", 0)),
-                    "output_excerpt": _trim_text(str(result.get("output", "")), 500),
-                }
-            )
-        elif tool_name == "shell":
-            command = str(args.get("command", ""))
-            if success and re.search(r"(^|\s)(rg|grep)\b", command):
-                local_file_search_observations.append(
-                    {
-                        "tool": "shell",
-                        "query": command,
-                        "matches": 0,
-                        "output_excerpt": _trim_text(str(result.get("output", "")), 500),
-                    }
-                )
-
-    _emit_progress(2, f"started run for '{input.query}' on {input.website}")
-    _emit_progress(5, "the agent will choose search and fetch steps.")
+    progress_current = emit_progress(
+        progress_current=progress_current,
+        current=2,
+        message=f"started run for '{input.query}' on {input.website}",
+    )
+    progress_current = emit_progress(
+        progress_current=progress_current,
+        current=5,
+        message="the agent will choose search and fetch steps.",
+    )
 
     @function_tool
     def search_site(search_query: str, max_results: int = 8) -> str:
@@ -182,7 +127,14 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
                 browserbase_api_key=input.browserbase_api_key,
             )
         )
-        _track_tool("search_site", {"search_query": search_query, "max_results": safe_max_results}, result)
+        nonlocal tool_calls_executed, progress_current
+        tool_calls_executed, progress_current = track_tool(
+            tool_name="search_site",
+            args={"search_query": search_query, "max_results": safe_max_results},
+            result=result,
+            tool_calls_executed=tool_calls_executed,
+            progress_current=progress_current,
+        )
         return _tool_result_to_text("search_site", result)
 
     @function_tool
@@ -210,7 +162,14 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
             except Exception:
                 pass
 
-        _track_tool("fetch_page", {"url": url}, result)
+        nonlocal tool_calls_executed, progress_current
+        tool_calls_executed, progress_current = track_tool(
+            tool_name="fetch_page",
+            args={"url": url},
+            result=result,
+            tool_calls_executed=tool_calls_executed,
+            progress_current=progress_current,
+        )
         return _tool_result_to_text("fetch_page", result)
 
     @function_tool
@@ -219,7 +178,14 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
         download_result = download_file(
             DownloadFileInput(url=url, allowed_domain=allowed_domain, max_bytes=8_000_000)
         )
-        _track_tool("download_file", {"url": url}, download_result)
+        nonlocal tool_calls_executed, progress_current
+        tool_calls_executed, progress_current = track_tool(
+            tool_name="download_file",
+            args={"url": url},
+            result=download_result,
+            tool_calls_executed=tool_calls_executed,
+            progress_current=progress_current,
+        )
         if not download_result.get("success"):
             return _tool_result_to_text("download_file", download_result)
 
@@ -261,7 +227,13 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
             except Exception:
                 pass
 
-        _track_tool("document_to_markdown", {"url": url, "focus_query": focus_query}, result)
+        tool_calls_executed, progress_current = track_tool(
+            tool_name="document_to_markdown",
+            args={"url": url, "focus_query": focus_query},
+            result=result,
+            tool_calls_executed=tool_calls_executed,
+            progress_current=progress_current,
+        )
 
         response_text = _tool_result_to_text("document_to_markdown", result)
         if download_path:
@@ -273,7 +245,14 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
         """List files captured in this run's local workspace."""
         safe_limit = max(1, min(max_files, 500))
         result = workspace.list_files_text(max_files=safe_limit)
-        _track_tool("list_local_files", {"max_files": safe_limit}, result)
+        nonlocal tool_calls_executed, progress_current
+        tool_calls_executed, progress_current = track_tool(
+            tool_name="list_local_files",
+            args={"max_files": safe_limit},
+            result=result,
+            tool_calls_executed=tool_calls_executed,
+            progress_current=progress_current,
+        )
         return _tool_result_to_text("list_local_files", result)
 
     @function_tool
@@ -281,7 +260,14 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
         """Read a local workspace file by relative path."""
         safe_limit = max(200, min(max_chars, 50000))
         result = workspace.read_file_text(path, max_chars=safe_limit)
-        _track_tool("read_local_file", {"path": path, "max_chars": safe_limit}, result)
+        nonlocal tool_calls_executed, progress_current
+        tool_calls_executed, progress_current = track_tool(
+            tool_name="read_local_file",
+            args={"path": path, "max_chars": safe_limit},
+            result=result,
+            tool_calls_executed=tool_calls_executed,
+            progress_current=progress_current,
+        )
         return _tool_result_to_text("read_local_file", result)
 
     @function_tool
@@ -289,10 +275,18 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
         """Run ripgrep over the local workspace and return matching lines."""
         safe_limit = max(1, min(max_matches, 200))
         result = workspace.grep_text(query, max_matches=safe_limit)
-        _track_tool("rg", {"query": query, "max_matches": safe_limit}, result)
+        nonlocal tool_calls_executed, progress_current
+        tool_calls_executed, progress_current = track_tool(
+            tool_name="rg",
+            args={"query": query, "max_matches": safe_limit},
+            result=result,
+            tool_calls_executed=tool_calls_executed,
+            progress_current=progress_current,
+        )
         return _tool_result_to_text("rg", result)
 
     def _shell_executor(request: ShellCommandRequest) -> ShellResult:
+        nonlocal tool_calls_executed, progress_current
         timeout_ms = request.data.action.timeout_ms or 30_000
         timeout_seconds = max(1, min(timeout_ms // 1000, 180))
         max_output = request.data.action.max_output_length or 20_000
@@ -307,16 +301,18 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
             exit_code = int(shell_result.get("exit_code", 1 if shell_result.get("error") else 0))
             output_text = str(shell_result.get("output", shell_result.get("error", ""))) or "(no output)"
 
-            _track_tool(
-                "shell",
-                {"command": command, "timeout_seconds": timeout_seconds},
-                {
+            tool_calls_executed, progress_current = track_tool(
+                tool_name="shell",
+                args={"command": command, "timeout_seconds": timeout_seconds},
+                result={
                     "success": exit_code == 0,
                     "command": command,
                     "exit_code": exit_code,
                     "output": output_text,
                     "error": shell_result.get("error", ""),
                 },
+                tool_calls_executed=tool_calls_executed,
+                progress_current=progress_current,
             )
 
             outputs.append(
@@ -355,7 +351,12 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
         workspace_path=str(workspace.run_dir),
     )
 
-    _emit_progress(60, "Running OpenAI Agents SDK orchestration", {"run_id": run_id})
+    progress_current = emit_progress(
+        progress_current=progress_current,
+        current=60,
+        message="Running OpenAI Agents SDK orchestration",
+        attributes={"run_id": run_id},
+    )
     agent = Agent(
         name="Browserbase File-Aware Research Agent",
         instructions=SYSTEM_INSTRUCTIONS,
@@ -364,21 +365,37 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
     )
 
     try:
-        _emit_progress(62, "Agent is running research steps")
+        progress_current = emit_progress(
+            progress_current=progress_current,
+            current=62,
+            message="Agent is running research steps",
+        )
 
         run_result = await Runner.run(
             agent,
             prompt,
         )
         final_answer = str(run_result.final_output or "").strip()
-        _emit_progress(88, "Agent completed research and drafted an answer")
+        progress_current = emit_progress(
+            progress_current=progress_current,
+            current=88,
+            message="Agent completed research and drafted an answer",
+        )
     except Exception as exc:
         final_answer = f"Agent execution failed: {exc}"
-        _emit_progress(88, f"Agent failed: {exc}")
+        progress_current = emit_progress(
+            progress_current=progress_current,
+            current=88,
+            message=f"Agent failed: {exc}",
+        )
 
     if not final_answer:
         final_answer = "No final answer produced by the agent."
-        _emit_progress(89, "Agent produced no final answer text")
+        progress_current = emit_progress(
+            progress_current=progress_current,
+            current=89,
+            message="Agent produced no final answer text",
+        )
 
     ranked_hits: dict[str, dict[str, Any]] = {}
     for observation in search_observations:
@@ -434,8 +451,16 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
         "raw_search_observations": search_observations[:20],
     }
 
-    _emit_progress(98, "Run complete; Elasticsearch is disabled in this example")
-    _emit_progress(100, f"Run complete: made {tool_calls_executed} tool calls")
+    progress_current = emit_progress(
+        progress_current=progress_current,
+        current=98,
+        message="Run complete; Elasticsearch is disabled in this example",
+    )
+    progress_current = emit_progress(
+        progress_current=progress_current,
+        current=100,
+        message=f"Run complete: made {tool_calls_executed} tool calls",
+    )
 
     return {
         "query": input.query,
