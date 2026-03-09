@@ -1,4 +1,5 @@
 # Byte-compiled / optimized / DLL files
+.agentic_search_runs
 __pycache__/
 *.py[codz]
 *$py.class
