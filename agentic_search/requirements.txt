@@ -1,7 +1,0 @@
-tensorlake
-openai
-openai-agents
-pydantic
-browserbase
-playwright
-requests
