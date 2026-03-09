@@ -68,11 +68,13 @@ python app.py
 ## Deploy to Tensorlake
 
 #### Set Secrets
+```bash
 tl secrets set TENSORLAKE_API_KEY="tl_..."
 tl secrets set OPENAI_API_KEY="sk-..."
 tl secrets set OPENAI_MODEL="gpt-5.1"
 tl secrets set BROWSERBASE_API_KEY="bb_..."
 tl secrets set BROWSERBASE_PROJECT_ID="proj_..."
+```
 
 #### Deploy Application
 
