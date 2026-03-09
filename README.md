@@ -6,6 +6,9 @@ This is a Deep Research agent that uses browsers to look up information and prov
 3. Document Parser - To convert files on websites to markdown 
 4. Shell - to list and search files
 
+https://github.com/user-attachments/assets/b09082fb-2303-4caa-9fef-d98e0d3b5b84
+
+
 ### Infrastructure Components
 
 * **OpenAI Agents SDK** - We use the OpenAI Agents SDK for the agent harness to orchestrate tools, and generate responses for queries.
