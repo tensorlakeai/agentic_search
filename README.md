@@ -59,7 +59,45 @@ export BROWSERBASE_PROJECT_ID="proj_..."
 
 ## Test the agent locally
 
-You can run applications that runs on Tensorlake locally. 
+You can run applications that runs on Tensorlake locally. This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
+
+### Install uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Install dependencies and run
+
+```bash
+uv sync
+```
+
+This reads `pyproject.toml` and `uv.lock`, creates a `.venv`, and installs all pinned dependencies.
+
+Playwright also needs browser binaries:
+
+```bash
+uv run playwright install chromium
+```
+
+### Run the agent
+
+```bash
+uv run python app.py
+```
+
+Or with custom query/website:
+
+```bash
+TEST_QUERY="How does session management work?" \
+TEST_WEBSITE="https://docs.browserbase.com/introduction" \
+uv run python app.py
+```
+
+### Alternative: pip
+
+If you prefer pip over uv:
 
 ```bash
 python3 -m venv .venv
