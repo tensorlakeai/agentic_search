@@ -16,10 +16,18 @@ agent_image = Image(name="browserbase-agent-image").run(INSTALL_RIPGREP_CMD).run
     "pip install openai openai-agents pydantic tensorlake"
 )
 
-browser_image = Image(name="browserbase-tools-image").run(INSTALL_RIPGREP_CMD).run(
-    "pip install browserbase playwright openai pydantic tensorlake"
+# fetch_page: uses Browserbase Fetch API (plain HTTP) — no Playwright needed
+browser_image = Image(name="browserbase-fetch-image").run(INSTALL_RIPGREP_CMD).run(
+    "pip install httpx beautifulsoup4 pydantic tensorlake"
+)
+
+# search_site: uses Stagehand (requires BROWSERBASE_PROJECT_ID + OPENAI_API_KEY)
+search_image = Image(name="browserbase-search-image").run(INSTALL_RIPGREP_CMD).run(
+    "pip install stagehand pydantic tensorlake"
 )
 
 document_image = Image(name="document-tools-image").run(INSTALL_RIPGREP_CMD).run(
     "pip install openai pydantic requests tensorlake"
 )
+
+__all__ = ["agent_image", "browser_image", "search_image", "document_image"]

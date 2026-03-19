@@ -12,6 +12,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from browserbase_tools import (
     fetch_page as fetch_page_tool,
     search_site as search_site_tool,
@@ -47,7 +51,6 @@ from tensorlake.applications import (
     secrets=[
         "OPENAI_API_KEY",
         "BROWSERBASE_API_KEY",
-        "BROWSERBASE_PROJECT_ID",
     ],
 )
 async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
@@ -75,7 +78,6 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
 
     _resolve_required("", "OPENAI_API_KEY", "OpenAI API key")
     _resolve_required(input.browserbase_api_key, "BROWSERBASE_API_KEY", "Browserbase API key")
-    _resolve_required(input.browserbase_project_id, "BROWSERBASE_PROJECT_ID", "Browserbase project ID")
 
     search_observations: list[dict[str, Any]] = []
     local_file_search_observations: list[dict[str, Any]] = []
@@ -177,7 +179,6 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
                 search_query=search_query,
                 allowed_domain=allowed_domain,
                 max_results=safe_max_results,
-                browserbase_project_id=input.browserbase_project_id,
                 browserbase_api_key=input.browserbase_api_key,
             )
         )
@@ -193,7 +194,6 @@ async def agentic_search(input: AgenticQueryInput) -> dict[str, Any]:
                 allowed_domain=allowed_domain,
                 max_chars=max_chars,
                 max_links=max_links,
-                browserbase_project_id=input.browserbase_project_id,
                 browserbase_api_key=input.browserbase_api_key,
             )
         )
