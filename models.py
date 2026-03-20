@@ -14,10 +14,6 @@ class AgenticQueryInput(BaseModel):
         default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-5.1"),
         description="OpenAI model used for the harness",
     )
-    browserbase_project_id: str = Field(
-        default_factory=lambda: os.getenv("BROWSERBASE_PROJECT_ID", ""),
-        description="Browserbase project ID",
-    )
     browserbase_api_key: str = Field(
         default_factory=lambda: os.getenv("BROWSERBASE_API_KEY", ""),
         description="Browserbase API key",
@@ -30,8 +26,6 @@ class BrowserFetchInput(BaseModel):
     max_links: int = Field(default=25, ge=1, le=100)
     max_chars: int = Field(default=9000, ge=1000, le=25000)
     timeout_ms: int = Field(default=45000, ge=5000, le=120000)
-    wait_after_load_ms: int = Field(default=1000, ge=0, le=10000)
-    browserbase_project_id: str = ""
     browserbase_api_key: str = ""
 
 
@@ -41,9 +35,6 @@ class BrowserSearchInput(BaseModel):
     allowed_domain: str | None = None
     max_results: int = Field(default=8, ge=1, le=30)
     timeout_ms: int = Field(default=45000, ge=5000, le=120000)
-    wait_after_load_ms: int = Field(default=1000, ge=0, le=10000)
-    wait_after_submit_ms: int = Field(default=1200, ge=0, le=10000)
-    browserbase_project_id: str = ""
     browserbase_api_key: str = ""
 
 

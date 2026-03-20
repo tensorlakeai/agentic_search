@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import urlparse
 
-from images import browser_image
+from images import browser_image, search_image
 from models import BrowserFetchInput, BrowserSearchInput
 from tensorlake.applications import function
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -26,20 +28,15 @@ def _resolve_required(value: str, env_name: str, label: str) -> str:
     return resolved
 
 
-
 def _collect_page_with_browserbase(input: BrowserFetchInput) -> dict[str, Any]:
-    from browserbase import Browserbase
-    from playwright.sync_api import sync_playwright
+    """Fetch a page via the Browserbase Fetch API (no Playwright session required)."""
+    import httpx
+    from bs4 import BeautifulSoup
 
     api_key = _resolve_required(
         input.browserbase_api_key,
         "BROWSERBASE_API_KEY",
         "Browserbase API key",
-    )
-    project_id = _resolve_required(
-        input.browserbase_project_id,
-        "BROWSERBASE_PROJECT_ID",
-        "Browserbase project ID",
     )
 
     allowed_domain = (input.allowed_domain or "").strip().lower() or None
@@ -49,101 +46,72 @@ def _collect_page_with_browserbase(input: BrowserFetchInput) -> dict[str, Any]:
             f"Requested URL domain '{requested_domain}' is outside allowed domain '{allowed_domain}'."
         )
 
-    bb = Browserbase(api_key=api_key)
-    session = bb.sessions.create(project_id=project_id)
-    connect_url = getattr(session, "connect_url", None) or getattr(session, "connectUrl", None)
-    session_id = getattr(session, "id", None)
+    response = httpx.post(
+        "https://api.browserbase.com/v1/fetch",
+        headers={"x-bb-api-key": api_key, "Content-Type": "application/json"},
+        json={"url": input.url},
+        timeout=input.timeout_ms / 1000,
+    )
+    response.raise_for_status()
 
-    if not connect_url:
-        raise RuntimeError("Browserbase session did not return a connect URL.")
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.connect_over_cdp(connect_url)
+    title = soup.title.get_text(strip=True) if soup.title else ""
+
+    for tag in soup(["script", "style", "noscript", "header", "footer", "nav"]):
+        tag.decompose()
+    body = soup.body or soup
+    raw_text = body.get_text(separator="\n")
+    import re
+    cleaned = re.sub(r"\n{3,}", "\n\n", re.sub(r"[ \t]+\n", "\n", raw_text)).strip()
+    text = cleaned[: input.max_chars]
+
+    seen: set[str] = set()
+    links: list[str] = []
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"]
         try:
-            context = browser.contexts[0] if browser.contexts else browser.new_context()
-            page = context.new_page()
-            page.goto(input.url, wait_until="domcontentloaded", timeout=input.timeout_ms)
-            if input.wait_after_load_ms > 0:
-                page.wait_for_timeout(input.wait_after_load_ms)
+            absolute = str(urlparse(input.url)._replace(
+                scheme=urlparse(input.url).scheme,
+                netloc=urlparse(input.url).netloc,
+            ).geturl())
+            from urllib.parse import urljoin
+            absolute = urljoin(input.url, href)
+        except Exception:
+            continue
+        if not (absolute.startswith("http://") or absolute.startswith("https://")):
+            continue
+        if absolute in seen:
+            continue
+        seen.add(absolute)
+        links.append(absolute)
+        if len(links) >= input.max_links:
+            break
 
-            extracted = page.evaluate(
-                """
-                ({ maxLinks, maxChars }) => {
-                  const toAbsolute = (href) => {
-                    try {
-                      return new URL(href, window.location.href).toString();
-                    } catch {
-                      return null;
-                    }
-                  };
-
-                  const seen = new Set();
-                  const links = [];
-                  const anchors = Array.from(document.querySelectorAll('a[href]'));
-
-                  for (const anchor of anchors) {
-                    const absolute = toAbsolute(anchor.getAttribute('href'));
-                    if (!absolute) continue;
-                    if (!(absolute.startsWith('http://') || absolute.startsWith('https://'))) continue;
-                    if (seen.has(absolute)) continue;
-                    seen.add(absolute);
-                    links.push(absolute);
-                    if (links.length >= maxLinks) break;
-                  }
-
-                  const raw = document.body ? document.body.innerText : '';
-                  const cleaned = raw
-                    .replace(/\\u00a0/g, ' ')
-                    .replace(/[ \\t]+\\n/g, '\\n')
-                    .replace(/\\n{3,}/g, '\\n\\n')
-                    .trim();
-
-                  return {
-                    title: document.title || '',
-                    text: cleaned.slice(0, maxChars),
-                    links,
-                  };
-                }
-                """,
-                {"maxLinks": input.max_links, "maxChars": input.max_chars},
-            )
-
-            final_url = page.url
-            page.close()
-        finally:
-            browser.close()
-
-    links = extracted.get("links", [])
     if allowed_domain:
         links = [link for link in links if _extract_domain(link) == allowed_domain]
 
     return {
         "success": True,
         "requested_url": input.url,
-        "url": final_url,
-        "title": extracted.get("title", ""),
-        "text": extracted.get("text", ""),
+        "url": input.url,
+        "title": title,
+        "text": text,
         "links": links,
-        "session_id": session_id,
         "fetched_at": _now_iso(),
     }
 
 
-def _search_site_with_browserbase(input: BrowserSearchInput) -> dict[str, Any]:
-    from browserbase import Browserbase
-    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-    from playwright.sync_api import sync_playwright
+async def _search_site_with_stagehand(input: BrowserSearchInput) -> dict[str, Any]:
+    """Search a site using Stagehand's act()/extract() instead of raw Playwright."""
+    from stagehand import AsyncStagehand
 
     api_key = _resolve_required(
         input.browserbase_api_key,
         "BROWSERBASE_API_KEY",
         "Browserbase API key",
     )
-    project_id = _resolve_required(
-        input.browserbase_project_id,
-        "BROWSERBASE_PROJECT_ID",
-        "Browserbase project ID",
-    )
+    model_api_key = _resolve_required("", "OPENAI_API_KEY", "OpenAI API key")
 
     allowed_domain = (input.allowed_domain or "").strip().lower() or None
     requested_domain = _extract_domain(input.start_url)
@@ -152,355 +120,74 @@ def _search_site_with_browserbase(input: BrowserSearchInput) -> dict[str, Any]:
             f"Requested URL domain '{requested_domain}' is outside allowed domain '{allowed_domain}'."
         )
 
-    bb = Browserbase(api_key=api_key)
-    session = bb.sessions.create(project_id=project_id)
-    connect_url = getattr(session, "connect_url", None) or getattr(session, "connectUrl", None)
-    session_id = getattr(session, "id", None)
-    if not connect_url:
-        raise RuntimeError("Browserbase session did not return a connect URL.")
+    client = AsyncStagehand(
+        browserbase_api_key=api_key,
+        model_api_key=model_api_key,
+    )
 
-    search_strategy = "none"
-    search_selector = ""
+    session = await client.sessions.start(model_name="openai/gpt-4o-mini")
+    try:
+        await client.sessions.navigate(id=session.id, url=input.start_url)
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.connect_over_cdp(connect_url)
-        try:
-            context = browser.contexts[0] if browser.contexts else browser.new_context()
-            page = context.new_page()
-            parsed = urlparse(input.start_url)
-            origin = f"{parsed.scheme}://{parsed.netloc}"
-            encoded_query = quote_plus(input.search_query)
+        await client.sessions.act(
+            id=session.id,
+            input=(
+                f"Find the search input on this page, click it, type '{input.search_query}', "
+                "then submit the search by pressing Enter or clicking the search button."
+            ),
+        )
 
-            # 1) Try visible search bar on the start page (hero search on CMS).
-            visited_search_urls: list[str] = []
-            input_found = False
-            last_error = None
+        # Give the results page time to load
+        await asyncio.sleep(min(input.timeout_ms / 1000 * 0.1, 3.0))
 
-            page.goto(input.start_url, wait_until="domcontentloaded", timeout=input.timeout_ms)
-            if input.wait_after_load_ms > 0:
-                page.wait_for_timeout(input.wait_after_load_ms)
-
-            selectors = [
-                "#hero-search-input",
-                ".hero-search-block input[name='keys']",
-                "#hero-search-block-form input[name='keys']",
-                "input[name='keys']",
-                "input[id*='keys' i]",
-                "input[type='search']",
-                "form[role='search'] input",
-                "[role='search'] input",
-                "input[name*='search' i]",
-                "input[id*='search' i]",
-                "input[aria-label*='search' i]",
-                "input[placeholder*='search' i]",
-                "header input[type='text']",
-            ]
-
-            submit_selectors = [
-                "#hero-search-block-form button[type='submit']",
-                ".hero-search-block button[type='submit']",
-                "button[id^='edit-submit'][type='submit']",
-                "button:has-text('Search')",
-                "input[type='submit'][value*='Search' i]",
-            ]
-
-            for selector in selectors:
-                locator = page.locator(selector)
-                try:
-                    if locator.count() == 0:
-                        continue
-                except Exception:
-                    continue
-
-                candidate = locator.first
-                try:
-                    visible = False
-                    try:
-                        visible = candidate.is_visible(timeout=1200)
-                    except Exception:
-                        visible = False
-                    if not visible:
-                        continue
-
-                    candidate.click(timeout=2500)
-                    candidate.fill("")
-                    candidate.fill(input.search_query, timeout=7000)
-
-                    submitted = False
-                    for submit_selector in submit_selectors:
-                        submit_locator = page.locator(submit_selector)
-                        try:
-                            if submit_locator.count() == 0:
-                                continue
-                            submit_button = submit_locator.first
-                            if submit_button.is_visible(timeout=800):
-                                submit_button.click(timeout=2500)
-                                submitted = True
-                                search_selector = f"{selector} + {submit_selector}"
-                                break
-                        except Exception:
-                            continue
-
-                    if not submitted:
-                        candidate.press("Enter")
-                        search_selector = selector
-
-                    try:
-                        page.wait_for_load_state("domcontentloaded", timeout=min(input.timeout_ms, 30000))
-                    except PlaywrightTimeoutError:
-                        pass
-                    if input.wait_after_submit_ms > 0:
-                        page.wait_for_timeout(input.wait_after_submit_ms)
-
-                    quality = page.evaluate(
-                        """
-                        () => {
-                          const bodyText = (document.body?.innerText || '').toLowerCase();
-                          const hasPrompt = bodyText.includes('please enter some search terms');
-                          const countResultRows = document.querySelectorAll(
-                            '.search-item-list .result, .search-item-list .search-results, .gsc-webResult.gsc-result, .views-row'
-                          ).length;
-                          const countResultLinks = document.querySelectorAll(
-                            '.search-item-list .result a[href], .search-item-list .search-results a[href], .gsc-webResult.gsc-result a[href], .views-row a[href]'
-                          ).length;
-                          return { hasPrompt, countResultRows, countResultLinks };
-                        }
-                        """
-                    )
-                    visited_search_urls.append(page.url)
-                    if quality.get("countResultRows", 0) > 0 or quality.get("countResultLinks", 0) > 0:
-                        search_strategy = "search_input"
-                        input_found = True
-                        break
-                except Exception as exc:
-                    last_error = exc
-                    continue
-
-            # 2) Deterministic search URL fallback (very reliable for CMS with ?keys=...).
-            if not input_found:
-                fallback_urls = [
-                    f"{origin}/search/cms?keys={encoded_query}",
-                    f"{origin}/search?keys={encoded_query}",
-                    f"{origin}/search?q={encoded_query}",
-                    f"{origin}/search?query={encoded_query}",
-                    f"{origin}/site-search?search_api_fulltext={encoded_query}",
-                ]
-
-                for fallback_url in fallback_urls:
-                    try:
-                        page.goto(
-                            fallback_url,
-                            wait_until="domcontentloaded",
-                            timeout=min(input.timeout_ms, 35000),
-                        )
-                        if input.wait_after_submit_ms > 0:
-                            page.wait_for_timeout(input.wait_after_submit_ms)
-
-                        quality = page.evaluate(
-                            """
-                            () => {
-                              const bodyText = (document.body?.innerText || '').toLowerCase();
-                              const hasPrompt = bodyText.includes('please enter some search terms');
-                              const countResultRows = document.querySelectorAll(
-                                '.search-item-list .result, .search-item-list .search-results, .gsc-webResult.gsc-result, .views-row'
-                              ).length;
-                              const countResultLinks = document.querySelectorAll(
-                                '.search-item-list .result a[href], .search-item-list .search-results a[href], .gsc-webResult.gsc-result a[href], .views-row a[href]'
-                              ).length;
-                              return { hasPrompt, countResultRows, countResultLinks };
-                            }
-                            """
-                        )
-                        visited_search_urls.append(page.url)
-                        if quality.get("countResultRows", 0) > 0 or quality.get("countResultLinks", 0) > 0 or not quality.get("hasPrompt", False):
-                            search_strategy = "direct_search_url"
-                            search_selector = fallback_url
-                            input_found = True
-                            break
-                    except Exception as exc:
-                        last_error = exc
-
-            if not input_found:
-                if last_error:
-                    raise RuntimeError(f"Could not execute site search: {last_error}") from last_error
-                raise RuntimeError("Could not locate a search input or working search URL.")
-
-            extracted = page.evaluate(
-                """
-                ({ maxResults, allowedDomain, query }) => {
-                  const normalize = (href) => {
-                    try {
-                      return new URL(href, window.location.href).toString();
-                    } catch {
-                      return null;
-                    }
-                  };
-                  const domainOf = (href) => {
-                    try {
-                      return new URL(href).hostname.toLowerCase();
-                    } catch {
-                      return "";
-                    }
-                  };
-                  const compact = (text) =>
-                    (text || "")
-                      .replace(/\\u00a0/g, " ")
-                      .replace(/\\s+/g, " ")
-                      .trim();
-
-                  const queryTerms = (query || "")
-                    .toLowerCase()
-                    .split(/[^a-z0-9]+/)
-                    .filter((t) => t.length >= 3);
-
-                  const looksLikeNav = (url, title) => {
-                    const u = (url || "").toLowerCase();
-                    const t = (title || "").toLowerCase();
-                    if (u.includes('#skip') || u.endsWith('#') || u.includes('javascript:')) return true;
-                    if (['about cms', 'newsroom', 'data & research', 'search', 'contact us'].includes(t)) return true;
-                    return false;
-                  };
-
-                  const scoreResult = (item) => {
-                    const hay = `${item.title} ${item.snippet} ${item.url}`.toLowerCase();
-                    let score = 0;
-                    for (const term of queryTerms) {
-                      const hits = hay.split(term).length - 1;
-                      score += hits * 3;
-                    }
-                    if (hay.includes('diabetes')) score += 8;
-                    if (hay.includes('coverage')) score += 6;
-                    if (hay.includes('medicare-coverage-database')) score += 7;
-                    if (hay.includes('policy article') || hay.includes('decision memo')) score += 5;
-                    if (looksLikeNav(item.url, item.title)) score -= 12;
-                    return score;
-                  };
-
-                  const collectFromRows = (rows) => {
-                    const list = [];
-                    for (const row of rows) {
-                      const anchor = row.querySelector('a[href]');
-                      if (!anchor) continue;
-                      const absolute = normalize(anchor.getAttribute('href'));
-                      if (!absolute) continue;
-                      if (!(absolute.startsWith('http://') || absolute.startsWith('https://'))) continue;
-                      if (allowedDomain && domainOf(absolute) !== allowedDomain) continue;
-
-                      const title = compact(anchor.innerText || anchor.textContent).slice(0, 180);
-                      let snippetRaw = compact(row.innerText || row.textContent);
-                      if (snippetRaw === title) {
-                        const maybe = row.querySelector('.snippet, .description, p, .search-snippet, .gs-snippet');
-                        if (maybe) snippetRaw = compact(maybe.innerText || maybe.textContent);
-                      }
-                      const snippet = snippetRaw.length > 420 ? snippetRaw.slice(0, 420) + "..." : snippetRaw;
-                      if (!title && !snippet) continue;
-                      list.push({ url: absolute, title, snippet });
-                    }
-                    return list;
-                  };
-
-                  const seen = new Set();
-                  const results = [];
-
-                  // Prefer explicit search-result containers.
-                  const rowSelectors = [
-                    ".search-item-list .result",
-                    ".search-item-list .search-results",
-                    ".gsc-webResult.gsc-result",
-                    ".gsc-result",
-                    ".views-row",
-                    "main article.search-result",
-                    "main li.search-result",
-                  ];
-
-                  let candidates = [];
-                  for (const sel of rowSelectors) {
-                    const rows = Array.from(document.querySelectorAll(sel));
-                    if (!rows.length) continue;
-                    candidates = candidates.concat(collectFromRows(rows));
-                  }
-
-                  // Fallback to anchors in main content if no explicit rows.
-                  if (!candidates.length) {
-                    const anchors = Array.from(
-                      document.querySelectorAll("main a[href], [role='main'] a[href]")
-                    );
-                    for (const anchor of anchors) {
-                      const absolute = normalize(anchor.getAttribute("href"));
-                      if (!absolute) continue;
-                      if (!(absolute.startsWith("http://") || absolute.startsWith("https://"))) continue;
-                      if (allowedDomain && domainOf(absolute) !== allowedDomain) continue;
-                      const title = compact(anchor.innerText || anchor.textContent).slice(0, 180);
-                      const container = anchor.closest(".result, article, li, section, div");
-                      const snippetRaw = container ? compact(container.innerText || container.textContent) : "";
-                      const snippet = snippetRaw.length > 360 ? snippetRaw.slice(0, 360) + "..." : snippetRaw;
-                      if (!title && !snippet) continue;
-                      candidates.push({ url: absolute, title, snippet });
-                    }
-                  }
-
-                  // Deduplicate + score + sort.
-                  const deduped = [];
-                  for (const item of candidates) {
-                    if (!item.url) continue;
-                    if (seen.has(item.url)) continue;
-                    seen.add(item.url);
-                    deduped.push({ ...item, score: scoreResult(item) });
-                  }
-
-                  deduped.sort((a, b) => b.score - a.score);
-
-                  for (const item of deduped) {
-                    if (results.length >= maxResults) break;
-                    if (looksLikeNav(item.url, item.title) && item.score < 2) continue;
-                    results.push({
-                      url: item.url,
-                      title: item.title,
-                      snippet: item.snippet,
-                      score: item.score,
-                    });
-                  }
-
-                  const bodyText = (document.body?.innerText || '').toLowerCase();
-
-                  return {
-                    search_url: window.location.href,
-                    page_title: document.title || "",
-                    extracted_candidates: deduped.length,
-                    has_no_terms_prompt: bodyText.includes('please enter some search terms'),
-                    results,
-                  };
-                }
-                """,
+        schema = {
+            "results": [
                 {
-                    "maxResults": input.max_results,
-                    "allowedDomain": allowed_domain or "",
-                    "query": input.search_query,
-                },
-            )
-            page.close()
-        finally:
-            browser.close()
+                    "url": "string",
+                    "title": "string",
+                    "snippet": "string",
+                }
+            ]
+        }
+        extracted = await client.sessions.extract(
+            id=session.id,
+            instruction=(
+                "Extract all search result items from this page. "
+                "For each result include the full absolute URL (starting with https://), "
+                "page title, and a short text snippet."
+            ),
+            schema=schema,
+        )
 
-    return {
-        "success": True,
-        "start_url": input.start_url,
-        "search_query": input.search_query,
-        "search_url": extracted.get("search_url", input.start_url),
-        "page_title": extracted.get("page_title", ""),
-        "extracted_candidates": extracted.get("extracted_candidates", 0),
-        "has_no_terms_prompt": extracted.get("has_no_terms_prompt", False),
-        "results": extracted.get("results", []),
-        "search_strategy": search_strategy,
-        "search_selector": search_selector,
-        "visited_search_urls": visited_search_urls,
-        "session_id": session_id,
-        "fetched_at": _now_iso(),
-    }
+        # Result lives at extracted.data.result
+        raw = getattr(getattr(extracted, "data", None), "result", None)
+        if raw is None:
+            raw = extracted if isinstance(extracted, list) else []
+        results: list[dict[str, Any]] = raw if isinstance(raw, list) else []
 
-@function(image=browser_image, secrets=["BROWSERBASE_API_KEY", "BROWSERBASE_PROJECT_ID"])
+        if allowed_domain:
+            results = [r for r in results if _extract_domain(r.get("url", "")) == allowed_domain]
+        results = results[: input.max_results]
+
+        return {
+            "success": True,
+            "start_url": input.start_url,
+            "search_query": input.search_query,
+            "search_url": input.start_url,
+            "results": results,
+            "fetched_at": _now_iso(),
+        }
+    finally:
+        await client.sessions.end(id=session.id)
+
+
+def _search_site_with_browserbase(input: BrowserSearchInput) -> dict[str, Any]:
+    return asyncio.run(_search_site_with_stagehand(input))
+
+
+@function(image=browser_image, secrets=["BROWSERBASE_API_KEY"])
 def fetch_page(input: BrowserFetchInput) -> dict[str, Any]:
-    """Fetch a page with Browserbase and return title/text/links."""
+    """Fetch a page with the Browserbase Fetch API and return title/text/links."""
     try:
         return _collect_page_with_browserbase(input)
     except Exception as exc:
@@ -511,9 +198,9 @@ def fetch_page(input: BrowserFetchInput) -> dict[str, Any]:
         }
 
 
-@function(image=browser_image, secrets=["BROWSERBASE_API_KEY", "BROWSERBASE_PROJECT_ID"])
+@function(image=search_image, secrets=["BROWSERBASE_API_KEY", "BROWSERBASE_PROJECT_ID", "OPENAI_API_KEY"])
 def search_site(input: BrowserSearchInput) -> dict[str, Any]:
-    """Use website search UI (or fallback search endpoint) to collect relevant result links."""
+    """Use Stagehand to drive the site search UI and collect relevant result links."""
     try:
         return _search_site_with_browserbase(input)
     except Exception as exc:

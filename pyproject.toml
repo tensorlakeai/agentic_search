@@ -1,0 +1,21 @@
+[project]
+name = "agentic-search"
+version = "0.1.0"
+description = "Hackable Deep Research Agent with Citations"
+requires-python = ">=3.10"
+dependencies = [
+    "tensorlake",
+    "openai",
+    "openai-agents",
+    "pydantic",
+    "browserbase",
+    "playwright",
+    "requests",
+    "python-dotenv",
+    "httpx>=0.28.1",
+    "beautifulsoup4>=4.14.3",
+    "stagehand>=3.6.0",
+]
+
+[tool.uv]
+dev-dependencies = []
