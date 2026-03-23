@@ -179,10 +179,12 @@ async def _search_site_with_stagehand(input: BrowserSearchInput) -> dict[str, An
         }
     finally:
         await client.sessions.end(id=session.id)
-
-
-def _search_site_with_browserbase(input: BrowserSearchInput) -> dict[str, Any]:
-    return asyncio.run(_search_site_with_stagehand(input))
+        # Explicitly close the Stagehand client so its internal httpx.AsyncClient
+        # is cleaned up before the event loop shuts down.
+        for attr in ("close", "aclose"):
+            if callable(getattr(client, attr, None)):
+                await getattr(client, attr)()
+                break
 
 
 @function(image=browser_image, secrets=["BROWSERBASE_API_KEY"])
@@ -198,11 +200,22 @@ def fetch_page(input: BrowserFetchInput) -> dict[str, Any]:
         }
 
 
+def _search_site_sync(input: BrowserSearchInput) -> dict[str, Any]:
+    """Run the async Stagehand search with proper event loop cleanup."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_search_site_with_stagehand(input))
+    finally:
+        # Let pending tasks (httpx cleanup) finish before closing the loop
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
+
+
 @function(image=search_image, secrets=["BROWSERBASE_API_KEY", "BROWSERBASE_PROJECT_ID", "OPENAI_API_KEY"])
 def search_site(input: BrowserSearchInput) -> dict[str, Any]:
     """Use Stagehand to drive the site search UI and collect relevant result links."""
     try:
-        return _search_site_with_browserbase(input)
+        return _search_site_sync(input)
     except Exception as exc:
         return {
             "success": False,

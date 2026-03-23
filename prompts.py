@@ -12,8 +12,11 @@ SYSTEM_INSTRUCTIONS = (
 
 PROCESS_GUIDANCE = (
     "Process guidance:\n"
-    "1) Choose search query variations yourself and run `search_site` as needed.\n"
-    "2) Fetch useful pages with `fetch_page`.\n"
+    "IMPORTANT: You MUST start by searching the website. Do NOT skip to local files — "
+    "the workspace is empty at the start of each run.\n"
+    "1) ALWAYS begin by running `search_site` with at least 2-3 different query variations "
+    "related to the user's question. This is REQUIRED.\n"
+    "2) Fetch the most relevant result pages with `fetch_page`.\n"
     "3) Use local grep/rg (`rg` or `shell`) to find relevant snippets in saved files.\n"
     "4) Read matched files from disk before answering.\n"
     "5) If you see document links (pdf/docx/csv/json), use `read_document`.\n"

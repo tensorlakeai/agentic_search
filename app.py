@@ -11,10 +11,6 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 from browserbase_tools import (
     fetch_page as fetch_page_tool,
     search_site as search_site_tool,
