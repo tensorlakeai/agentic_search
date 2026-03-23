@@ -132,9 +132,13 @@ async def _search_site_with_stagehand(input: BrowserSearchInput) -> dict[str, An
         await client.sessions.act(
             id=session.id,
             input=(
-                f"Find the search input on this page, click it, type '{input.search_query}', "
-                "then submit the search by pressing Enter or clicking the search button."
+                f"Find the search input on this page, click it, type '{input.search_query}'"
             ),
+        )
+
+        await client.sessions.act(
+            id=session.id,
+            input="Press the search button to submit the search.",
         )
 
         # Give the results page time to load
