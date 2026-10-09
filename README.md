@@ -151,3 +151,11 @@ The app emits frequent progress updates through Tensorlake progress events:
 
 Use Tensorlake's progress streaming API for live updates:
 - docs: https://docs.tensorlake.ai/applications/guides/streaming-progress
+
+## Dependency installation
+
+Use Node.js 22+ and pnpm 11.28.5. Run `pnpm --dir frontend install --frozen-lockfile` before the
+project build/test commands. The committed policy requires registry releases
+to be at least 24 hours old, rejects missing publish dates, rechecks frozen
+locks, and disables install lifecycle scripts. Run reviewed build steps
+explicitly; do not bypass the delay for a newly published dependency.
